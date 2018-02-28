@@ -36,7 +36,7 @@ import (
 	"golang.org/x/crypto/scrypt"
 	"gopkg.in/yaml.v2"
 
-	"github.com/opencoff/go-lib/util"
+	"github.com/opencoff/go-utils"
 )
 
 // Private Ed25519 key
@@ -523,7 +523,7 @@ func fileCksum(fn string, h hash.Hash) ([]byte, error) {
 
 	defer fd.Close()
 
-	sz, err := util.MmapReader(fd, 0, 0, h)
+	sz, err := utils.MmapReader(fd, 0, 0, h)
 	if err != nil {
 		return nil, err
 	}
