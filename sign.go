@@ -62,7 +62,7 @@ type Keypair struct {
 // An Ed25519 Signature
 type Signature struct {
 	Sig    []byte // 32 byte digital signature
-	Pkhash []byte // [0:16] SHA256 hash of public key needed for verification
+	pkhash []byte // [0:16] SHA256 hash of public key needed for verification
 }
 
 // Algorithm used in the encrypted private key
@@ -313,7 +313,7 @@ func (sk *PrivateKey) SignMessage(ck []byte, comment string) (*Signature, error)
 	pk := []byte(xpk)           // cast
 	pkh := sha256.Sum256(pk)
 
-	return &Signature{Sig: sig, Pkhash: pkh[:16]}, nil
+	return &Signature{Sig: sig, pkhash: pkh[:16]}, nil
 }
 
 // Read and sign a file
@@ -365,14 +365,14 @@ func MakeSignature(b []byte) (*Signature, error) {
 		return nil, fmt.Errorf("can't decode Base64:Pkhash <%s>: %s", ss.Pkhash, err)
 	}
 
-	return &Signature{Sig: s, Pkhash: p}, nil
+	return &Signature{Sig: s, pkhash: p}, nil
 }
 
-// Serialize a signature suitiable for storing in durable media
+// Serialize a signature suitable for storing in durable media
 func (sig *Signature) Serialize(comment string) ([]byte, error) {
 
 	sigs := base64.StdEncoding.EncodeToString(sig.Sig)
-	pks := base64.StdEncoding.EncodeToString(sig.Pkhash)
+	pks := base64.StdEncoding.EncodeToString(sig.pkhash)
 	ss := &signature{Comment: comment, Pkhash: pks, Signature: sigs}
 
 	out, err := yaml.Marshal(ss)
@@ -383,20 +383,21 @@ func (sig *Signature) Serialize(comment string) ([]byte, error) {
 	return out, nil
 }
 
-// Serialize signature to an output file 'f'
+// SerializeFile serializes the signature to an output file 'f'
 func (sig *Signature) SerializeFile(fn, comment string) error {
 	b, err := sig.Serialize(comment)
-	if err != nil {
-		return err
+	if err == nil {
+		err = writeFile(fn, b, 0644)
 	}
-
-	return writeFile(fn, b, 0644)
+	return err
 }
 
-// Return true if a given PK matches the PKhash we have
+// IsPKMatch returns true if public key 'pk' can potentially validate
+// the signature. It does this by comparing the hash of 'pk' against
+// 'Pkhash' of 'sig'.
 func (sig *Signature) IsPKMatch(pk *PublicKey) bool {
 	h := sha256.Sum256(pk.Pk)
-	return subtle.ConstantTimeCompare(h[:16], sig.Pkhash) == 1
+	return subtle.ConstantTimeCompare(h[:16], sig.pkhash) == 1
 }
 
 //  --- Public Key Methods ---

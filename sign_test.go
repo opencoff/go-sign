@@ -19,6 +19,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"os"
+	"path"
 	"runtime"
 	"testing"
 	// module under test
@@ -53,15 +54,14 @@ func tempdir(t *testing.T) string {
 
 	var b [10]byte
 
-	//dn := os.TempDir()
-	dn := "/tmp"
+	dn := os.TempDir()
 	rand.Read(b[:])
 
-	tmp := fmt.Sprintf("%s/%x", dn, b[:])
+	tmp := path.Join(dn, fmt.Sprintf("%x", b[:]))
 	err := os.MkdirAll(tmp, 0755)
 	assert(err == nil, fmt.Sprintf("mkdir -p %s: %s", tmp, err))
 
-	t.Logf("Tempdir is %s", tmp)
+	//t.Logf("Tempdir is %s", tmp)
 	return tmp
 }
 
@@ -167,7 +167,7 @@ func Test1(t *testing.T) {
 	assert(ss.IsPKMatch(pk), "pk match fail")
 
 	// Corrupt the pkhash and see
-	rand.Read(ss.Pkhash[:])
+	rand.Read(ss.pkhash[:])
 	assert(!ss.IsPKMatch(pk), "corrupt pk match fail")
 
 	// Incorrect checksum == should fail verification
@@ -251,4 +251,60 @@ func Test1(t *testing.T) {
 
 	os.RemoveAll(dn)
 }
+
+
+func Benchmark_Keygen(b *testing.B) {
+	for i := 0; i < b.N; i++ {
+		_, _ = NewKeypair()
+	}
+}
+
+
+func Benchmark_Sig(b *testing.B) {
+	var sizes = [...]uint{
+		16,
+		32,
+		64,
+	}
+
+	b.StopTimer()
+	kp, _ := NewKeypair()
+	var sig *Signature
+	for _, sz := range sizes {
+		buf := randbuf(sz)
+		s0 := fmt.Sprintf("%d byte sign", sz)
+		s1 := fmt.Sprintf("%d byte verify", sz)
+
+		b.ResetTimer()
+
+		b.Run(s0, func (b *testing.B) {
+			sig = benchSign(b, buf, &kp.Sec)
+		})
+
+		b.Run(s1, func (b *testing.B) {
+			benchVerify(b, buf, sig, &kp.Pub)
+		})
+	}
+}
+
+func benchSign(b *testing.B, buf []byte, sk *PrivateKey) (sig *Signature) {
+	for i := 0; i < b.N; i++ {
+		sig, _ = sk.SignMessage(buf, "")
+	}
+	return sig
+}
+
+func benchVerify(b *testing.B, buf []byte, sig *Signature, pk *PublicKey) {
+	for i := 0; i < b.N; i++ {
+		pk.VerifyMessage(buf, sig)
+	}
+}
+
+
+func randbuf(sz uint) []byte {
+	b := make([]byte, sz)
+	rand.Read(b)
+	return b
+}
+
 // vim: noexpandtab:ts=8:sw=8:tw=92:
