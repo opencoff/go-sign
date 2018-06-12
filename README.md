@@ -1,3 +1,5 @@
+[![GoDoc](https://godoc.org/github.com/opencoff/go-sign?status.svg)](https://godoc.org/github.com/opencoff/go-sign)
+
 # go-sign - Ed25519 signature calculation and verification
 
 ## What is it?
